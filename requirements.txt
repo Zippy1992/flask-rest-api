@@ -2,3 +2,4 @@ Flask
 Flask_SQLAlchemy
 Werkzeug
 gunicorn
+flask-jwt-extended
