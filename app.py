@@ -14,6 +14,10 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
+@app.route('/')
+def home():
+    return "✅ Flask API is running on Render!"
+    
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
