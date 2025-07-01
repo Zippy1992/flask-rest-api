@@ -24,6 +24,10 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
+@app.route('/debug-users')
+def debug_users():
+    return jsonify([{'id': u.id, 'username': u.username} for u in User.query.all()])
+
 # ✅ Home route
 @app.route('/')
 def home():
@@ -33,6 +37,8 @@ def home():
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
+    print(f"[LOG] Registration request: {data}")  # <-- This gets printed to Render logs
+
     if User.query.filter_by(username=data['username']).first():
         return jsonify({'message': 'Username already exists'}), 409
 
@@ -41,7 +47,9 @@ def register():
     db.session.add(new_user)
     db.session.commit()
 
+    print(f"[LOG] User registered: {new_user.username}")  # <-- Also goes to logs
     return jsonify({'message': 'User registered successfully'}), 201
+
 
 # 🔵 Login
 @app.route('/login', methods=['POST'])
