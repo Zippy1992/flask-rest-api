@@ -63,12 +63,34 @@ def login():
     access_token = create_access_token(identity=user.username)
     return jsonify({'access_token': access_token}), 200
 
+@app.route('/predict', methods=['POST'])
+@jwt_required()
+def predict():
+    current_user = get_jwt_identity()
+    data = request.get_json()
+    
+    # Example logic (e.g., dummy prediction or call model)
+    input_text = data.get("input", "")
+    result = {"prediction": input_text.upper()}  # mock
+
+    return jsonify({
+        "user": current_user,
+        "input": input_text,
+        "result": result
+    })
+
+
 # 🔐 Protected route
 @app.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():
     current_user = get_jwt_identity()
     return jsonify({'message': f'Hello, {current_user}. You are authorized!'}), 200
+
+@app.route('/routes')
+def list_routes():
+    return jsonify([str(rule) for rule in app.url_map.iter_rules()])
+
 
 # 🚀 Start server (Render needs 0.0.0.0)
 if __name__ == '__main__':
