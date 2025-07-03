@@ -1,6 +1,9 @@
 services:
   - type: web
-    name: flask-api
+    name: flask-rest-api
     env: python
     buildCommand: ""
-    startCommand: "python app.py"
+    startCommand: gunicorn app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
