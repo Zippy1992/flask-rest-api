@@ -135,7 +135,7 @@ def upload_file():
     file.save(temp_path)
 
     # Upload to GCS
-    bucket_name = "your-gcs-bucket-name"  # Change this
+    bucket_name = "doc-summarizer-uploads"  # Change this
     gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
 
     return jsonify({
