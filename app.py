@@ -3,6 +3,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import tempfile
+from werkzeug.utils import secure_filename
+
 
 app = Flask(__name__)
 
@@ -91,6 +94,34 @@ def protected():
 def list_routes():
     return jsonify([str(rule) for rule in app.url_map.iter_rules()])
 
+
+ALLOWED_EXTENSIONS = {'txt', 'pdf'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/upload', methods=['POST'])
+@jwt_required()
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Unsupported file type'}), 400
+
+    current_user = get_jwt_identity()
+    filename = secure_filename(file.filename)
+
+    # Save temporarily
+    temp_path = os.path.join(tempfile.gettempdir(), filename)
+    file.save(temp_path)
+
+    return jsonify({'message': f'File received for {current_user}', 'filename': filename}), 200
 
 # 🚀 Start server (Render needs 0.0.0.0)
 if __name__ == '__main__':
