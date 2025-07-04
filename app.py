@@ -5,6 +5,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import tempfile
 from werkzeug.utils import secure_filename
+from google.cloud import storage
+import tempfile
+from werkzeug.utils import secure_filename
+
 
 
 app = Flask(__name__)
@@ -100,6 +104,15 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(source_file_path)
+    return f"gs://{bucket_name}/{destination_blob_name}"
+
+
 @app.route('/upload', methods=['POST'])
 @jwt_required()
 def upload_file():
@@ -121,7 +134,16 @@ def upload_file():
     temp_path = os.path.join(tempfile.gettempdir(), filename)
     file.save(temp_path)
 
-    return jsonify({'message': f'File received for {current_user}', 'filename': filename}), 200
+    # Upload to GCS
+    bucket_name = "your-gcs-bucket-name"  # Change this
+    gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
+
+    return jsonify({
+        "message": f"File received for {current_user}",
+        "filename": filename,
+        "gcs_uri": gcs_uri
+    })
+
 
 # 🚀 Start server (Render needs 0.0.0.0)
 if __name__ == '__main__':
