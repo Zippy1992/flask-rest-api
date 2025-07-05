@@ -8,6 +8,7 @@ from google.cloud import aiplatform_v1
 from google.cloud.aiplatform_v1.types import PredictRequest
 from google.protobuf import struct_pb2
 
+
 import os
 import tempfile
 
@@ -112,7 +113,7 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     blob.upload_from_filename(source_file_path)
     return f"gs://{bucket_name}/{destination_blob_name}"
 
-# 🧠 Vertex AI Summarization
+
 def summarize_with_vertex(gcs_uri):
     client = aiplatform_v1.PredictionServiceClient()
 
@@ -122,25 +123,23 @@ def summarize_with_vertex(gcs_uri):
         endpoint="text-bison@001"
     )
 
-    # ✅ Properly wrap the prompt in struct_pb2.Value
-    instance = struct_pb2.Value()
-    instance.struct_value.fields["prompt"].string_value = f"Summarize this document: {gcs_uri}"
+    # Create a Struct for the instance
+    instance = struct_pb2.Struct()
+    instance.fields["content"].string_value = f"Summarize this document: {gcs_uri}"
 
-    # ✅ Properly wrap parameters
-    parameters = struct_pb2.Value()
-    parameters.struct_value.fields["temperature"].number_value = 0.2
+    # Create a Struct for parameters
+    parameters = struct_pb2.Struct()
+    parameters.fields["temperature"].number_value = 0.2
 
-    # ✅ Now construct the PredictRequest
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],          # MUST be a list of struct_pb2.Value
-        parameters=parameters          # Also a struct_pb2.Value
+        instances=[instance],
+        parameters=parameters
     )
 
     response = client.predict(request=request)
+    return response.predictions[0]['content']
 
-    # ✅ Extract and return the summary
-    return response.predictions[0].struct_value.fields["content"].string_value 
 
 # 📤 Upload & summarize route
 @app.route('/upload', methods=['POST'])
