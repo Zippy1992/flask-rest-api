@@ -123,18 +123,16 @@ def summarize_with_vertex(gcs_uri):
         endpoint="text-bison@001"
     )
 
-    # Create a Struct for the instance
-    instance = struct_pb2.Struct()
-    instance.fields["content"].string_value = f"Summarize this document: {gcs_uri}"
+    instance = Value()
+    instance.struct_value.fields["content"].string_value = f"Summarize this document: {gcs_uri}"
 
-    # Create a Struct for parameters
-    parameters = struct_pb2.Struct()
-    parameters.fields["temperature"].number_value = 0.2
+    parameters = Value()
+    parameters.struct_value.fields["temperature"].number_value = 0.2
 
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],
-        parameters=parameters
+        instances=[instance],      # ✅ Proper Value object
+        parameters=parameters      # ✅ Proper Value object
     )
 
     response = client.predict(request=request)
