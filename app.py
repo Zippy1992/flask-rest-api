@@ -7,6 +7,8 @@ from google.cloud import storage
 from google.cloud import aiplatform_v1
 from google.cloud.aiplatform_v1.types import PredictRequest
 from google.protobuf import struct_pb2
+from google.protobuf.struct_pb2 import Value
+
 
 
 import os
