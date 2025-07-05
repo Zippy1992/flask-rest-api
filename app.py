@@ -11,6 +11,7 @@ from google.protobuf.struct_pb2 import Value
 
 
 
+
 import os
 import tempfile
 
@@ -115,12 +116,11 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     blob.upload_from_filename(source_file_path)
     return f"gs://{bucket_name}/{destination_blob_name}"
 
-
 def summarize_with_vertex(gcs_uri):
     client = aiplatform_v1.PredictionServiceClient()
 
     endpoint = client.endpoint_path(
-        project="strategic-block-464807-a1",
+        project="your-project-id",
         location="us-central1",
         endpoint="text-bison@001"
     )
@@ -133,8 +133,8 @@ def summarize_with_vertex(gcs_uri):
 
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],      # ✅ Proper Value object
-        parameters=parameters      # ✅ Proper Value object
+        instances=[instance],
+        parameters=parameters
     )
 
     response = client.predict(request=request)
