@@ -119,17 +119,11 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
 def summarize_with_vertex(gcs_uri):
     client = aiplatform_v1.PredictionServiceClient()
 
-    endpoint = client.endpoint_path(
-        project="your-project-id",
-        location="us-central1",
-        endpoint="text-bison@001"
-    )
+    endpoint = "projects/strategic-block-464807-a1/locations/us-central1/publishers/google/models/text-bison@001"
 
-    instance = Value()
-    instance.struct_value.fields["content"].string_value = f"Summarize this document: {gcs_uri}"
-
-    parameters = Value()
-    parameters.struct_value.fields["temperature"].number_value = 0.2
+    # ✅ Just pass a normal Python dict
+    instance = {"content": f"Summarize this document: {gcs_uri}"}
+    parameters = {"temperature": 0.2}
 
     request = PredictRequest(
         endpoint=endpoint,
@@ -138,7 +132,8 @@ def summarize_with_vertex(gcs_uri):
     )
 
     response = client.predict(request=request)
-    return response.predictions[0]['content']
+    return response.predictions[0].struct_value.fields["content"].string_value
+
 
 
 # 📤 Upload & summarize route
