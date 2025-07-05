@@ -102,29 +102,27 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
 
 # ✅ Vertex AI summarizer
 
+
 def summarize_with_vertex(gcs_uri):
     client = aiplatform_v1.PredictionServiceClient()
 
     endpoint = "projects/strategic-block-464807-a1/locations/us-central1/publishers/google/models/text-bison@001"
 
-    # Create proper `Value` object for instances
     instance = struct_pb2.Value()
     instance.struct_value.fields["content"].string_value = f"Summarize this document: {gcs_uri}"
 
-    # Create proper `Value` object for parameters
     parameters = struct_pb2.Value()
     parameters.struct_value.fields["temperature"].number_value = 0.2
 
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],       # ✅ CORRECT: list of Value objects
-        parameters=parameters       # ✅ CORRECT: Value object
+        instances=[instance],
+        parameters=parameters
     )
 
     response = client.predict(request=request)
 
-    # Extract summary
-    return response.predictions[0].struct_value.fields["content"].string_value
+    return response.predictions[0] if response.predictions else "No summary returned."
 
 
 @app.route('/upload', methods=['POST'])
