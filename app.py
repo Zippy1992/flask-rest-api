@@ -6,7 +6,6 @@ from werkzeug.utils import secure_filename
 from google.cloud import storage
 from google.cloud import aiplatform_v1
 from google.cloud.aiplatform_v1.types import PredictRequest
-
 import os
 import tempfile
 
