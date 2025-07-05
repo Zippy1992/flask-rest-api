@@ -108,15 +108,14 @@ def summarize_with_vertex(gcs_uri):
 
     endpoint = "projects/strategic-block-464807-a1/locations/us-central1/publishers/google/models/text-bison@001"
 
-    instance = struct_pb2.Value()
-    instance.struct_value.fields["content"].string_value = f"Summarize this document: {gcs_uri}"
+    # 👇 Vertex expects instances as list of dicts
+    instances = [{"content": f"Summarize this document: {gcs_uri}"}]
 
-    parameters = struct_pb2.Value()
-    parameters.struct_value.fields["temperature"].number_value = 0.2
+    parameters = {"temperature": 0.2}
 
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],
+        instances=instances,
         parameters=parameters
     )
 
