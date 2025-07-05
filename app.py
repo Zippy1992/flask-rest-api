@@ -1,9 +1,12 @@
-from flask import Flask, request, jsonify
+ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from google.cloud import storage
+from google.cloud import aiplatform_v1
+from google.cloud.aiplatform_v1.types import PredictRequest
+
 import os
 import tempfile
 
@@ -80,7 +83,7 @@ def protected():
     current_user = get_jwt_identity()
     return jsonify({'message': f'Hello, {current_user}. You are authorized!'}), 200
 
-# 🧠 Predict route (mock GenAI)
+# 🧠 Mock GenAI Predict route
 @app.route('/predict', methods=['POST'])
 @jwt_required()
 def predict():
@@ -94,12 +97,13 @@ def predict():
         "result": result
     })
 
-# ✅ Upload allowed extensions
+# ✅ Allowed extensions
 ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# 📦 Upload to Google Cloud Storage
 def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
@@ -107,7 +111,22 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     blob.upload_from_filename(source_file_path)
     return f"gs://{bucket_name}/{destination_blob_name}"
 
-# 📤 File Upload (JWT protected)
+# 🧠 Vertex AI Summarization
+def summarize_with_vertex(gcs_uri):
+    client = aiplatform_v1.PredictionServiceClient()
+
+    endpoint = "projects/strategic-block-464807-a1/locations/us-central1/publishers/google/models/text-bison"  # Replace with your project
+
+    request = PredictRequest(
+        endpoint=endpoint,
+        instances=[{"content": f"Summarize this document: {gcs_uri}"}],
+        parameters={"temperature": 0.2}
+    )
+    
+    response = client.predict(request=request)
+    return response.predictions[0]['content']
+
+# 📤 Upload & summarize route
 @app.route('/upload', methods=['POST'])
 @jwt_required()
 def upload_file():
@@ -125,14 +144,16 @@ def upload_file():
     temp_path = os.path.join(tempfile.gettempdir(), filename)
     file.save(temp_path)
 
-    # ⬆️ Upload to GCS
-    bucket_name = "doc-summarizer-uploads"  # replace with your bucket
+    bucket_name = "doc-summarizer-uploads"
     gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
+
+    summary = summarize_with_vertex(gcs_uri)
 
     return jsonify({
         "message": f"File received for {current_user}",
         "filename": filename,
-        "gcs_uri": gcs_uri
+        "gcs_uri": gcs_uri,
+        "summary": summary
     })
 
 # 🧭 Route map
@@ -140,7 +161,7 @@ def upload_file():
 def list_routes():
     return jsonify([str(rule) for rule in app.url_map.iter_rules()])
 
-# 🚀 Run server (Render or local)
+# 🚀 Run the server
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
