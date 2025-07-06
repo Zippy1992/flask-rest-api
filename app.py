@@ -105,10 +105,37 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
 
 # ✅ Vertex AI summarizer
 
+def summarize_with_vertex(gcs_uri):
+    client = aiplatform_v1.PredictionServiceClient()
+
+    endpoint = client.endpoint_path(
+        project="strategic-block-464807-a1",     # ✅ Replace with your project
+        location="us-central1",
+        endpoint="text-bison@001"                # ✅ Make sure this is correct
+    )
+
+    # 🔵 Create struct_pb2.Value for instances
+    instance = struct_pb2.Value()
+    instance.struct_value.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
+
+    # 🟡 Parameters (e.g. temperature)
+    parameters = struct_pb2.Value()
+    parameters.struct_value.fields["temperature"].number_value = 0.2
+
+    # ✅ Build PredictRequest
+    request = PredictRequest(
+        endpoint=endpoint,
+        instances=[instance],
+        parameters=parameters
+    )
+
+    # 🧠 Call Vertex AI
+    response = client.predict(request=request)
+    return response.predictions[0].struct_value.fields["content"].string_value
 
 
 def summarize_with_vertex(gcs_uri):
-    client = aiplatform_v1.PredictionServiceClient()
+    client = PredictionServiceClient()
 
     endpoint = client.endpoint_path(
         project="strategic-block-464807-a1",
@@ -116,60 +143,31 @@ def summarize_with_vertex(gcs_uri):
         endpoint="text-bison@001"
     )
 
-    # ✅ Create instance as struct_pb2.Value
-    instance = struct_pb2.Value()
-    instance.struct_value.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
+    # 🧠 Create a Struct for the instance
+    instance_struct = struct_pb2.Struct()
+    instance_struct["content"] = f"Summarize this document stored at: {gcs_uri}"
 
-    # ✅ Create parameters as struct_pb2.Value
-    parameters = struct_pb2.Value()
-    parameters.struct_value.fields["temperature"].number_value = 0.2
+    # 🔁 Make sure it's a list of Structs, not Values
+    instances = [instance_struct]
 
+    # 📊 Parameters as Struct
+    parameters = struct_pb2.Struct()
+    parameters["temperature"] = 0.2
+
+    # 🔄 Send request
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],          # ✅ Correct Value list
-        parameters=parameters          # ✅ Correct Value object
+        instances=instances,
+        parameters=parameters
     )
 
+    # 🧠 Run prediction
     response = client.predict(request=request)
-    return response.predictions[0]['content']
+
+    # 📝 Extract and return the result
+    return response.predictions[0].fields["content"].string_value
 
 
-@app.route('/upload', methods=['POST'])
-@jwt_required()
-def upload_file():
-    print("[DEBUG] Upload route called.")
-    if 'file' not in request.files:
-        print("[ERROR] No file in request.")
-        return jsonify({'error': 'No file part in the request'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        print("[ERROR] No file selected.")
-        return jsonify({'error': 'No selected file'}), 400
-
-    if not allowed_file(file.filename):
-        print("[ERROR] Unsupported file type.")
-        return jsonify({'error': 'Unsupported file type'}), 400
-
-
-    current_user = get_jwt_identity()
-    filename = secure_filename(file.filename)
-    temp_path = os.path.join(tempfile.gettempdir(), filename)
-    file.save(temp_path)
-
-    # ✅ Upload to GCS
-    bucket_name = "doc-summarizer-uploads"
-    gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
-
-    # ✅ Call Vertex AI
-    summary = summarize_with_vertex(gcs_uri)
-
-    return jsonify({
-        "message": f"File received for {current_user}",
-        "filename": filename,
-        "gcs_uri": gcs_uri,
-        "summary": summary
-    })
 
 @app.route('/routes')
 def list_routes():
