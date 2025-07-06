@@ -109,29 +109,28 @@ def summarize_with_vertex(gcs_uri):
     client = aiplatform_v1.PredictionServiceClient()
 
     endpoint = client.endpoint_path(
-        project="strategic-block-464807-a1",     # ✅ Replace with your project
+        project="strategic-block-464807-a1",
         location="us-central1",
-        endpoint="text-bison@001"                # ✅ Make sure this is correct
+        endpoint="text-bison@001"
     )
 
-    # 🔵 Create struct_pb2.Value for instances
-    instance = struct_pb2.Value()
-    instance.struct_value.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
+    # ✅ instance must be a Struct, not Value
+    instance = struct_pb2.Struct()
+    instance["content"] = f"Summarize this document stored at: {gcs_uri}"
 
-    # 🟡 Parameters (e.g. temperature)
-    parameters = struct_pb2.Value()
-    parameters.struct_value.fields["temperature"].number_value = 0.2
+    # ✅ parameters must be a Struct too
+    parameters = struct_pb2.Struct()
+    parameters["temperature"] = 0.2
 
-    # ✅ Build PredictRequest
+    # ✅ Pass list of Structs
     request = PredictRequest(
         endpoint=endpoint,
         instances=[instance],
         parameters=parameters
     )
 
-    # 🧠 Call Vertex AI
     response = client.predict(request=request)
-    return response.predictions[0].struct_value.fields["content"].string_value
+    return response.predictions[0].fields["content"].string_value
 
 
 def summarize_with_vertex(gcs_uri):
