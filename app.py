@@ -102,33 +102,30 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     return f"gs://{bucket_name}/{destination_blob_name}"
 
 def summarize_with_vertex(gcs_uri):
-    from google.cloud.aiplatform_v1 import PredictionServiceClient
-    from google.cloud.aiplatform_v1.types import PredictRequest
-    from google.protobuf import struct_pb2
-
     client = PredictionServiceClient()
 
     endpoint = client.endpoint_path(
-        project="strategic-block-464807-a1",  # your project ID
+        project="strategic-block-464807-a1",
         location="us-central1",
         endpoint="text-bison@001"
     )
 
-    # ✅ Create Struct manually
+    # ✅ Create Struct correctly
     instance = struct_pb2.Struct()
     instance.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
 
     parameters = struct_pb2.Struct()
     parameters.fields["temperature"].number_value = 0.2
 
-    request = PredictRequest(
-        endpoint=endpoint,
-        instances=[instance],  # ✅ Must be list of Struct
-        parameters=parameters  # ✅ Must be Struct
-    )
+    # ✅ Assemble the request
+    request = PredictRequest()
+    request.endpoint = endpoint
+    request.instances.append(instance)         # 👈 This is KEY: use .append()
+    request.parameters.CopyFrom(parameters)    # 👈 And this ensures valid copy of Struct
 
     response = client.predict(request=request)
 
+    # ✅ Get the result
     return response.predictions[0].fields["content"].string_value
 
 
