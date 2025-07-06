@@ -134,18 +134,23 @@ def summarize_with_vertex(gcs_uri):
     return response.predictions[0]['content']
 
 
-
 @app.route('/upload', methods=['POST'])
 @jwt_required()
 def upload_file():
+    print("[DEBUG] Upload route called.")
     if 'file' not in request.files:
+        print("[ERROR] No file in request.")
         return jsonify({'error': 'No file part in the request'}), 400
 
     file = request.files['file']
     if file.filename == '':
+        print("[ERROR] No file selected.")
         return jsonify({'error': 'No selected file'}), 400
+
     if not allowed_file(file.filename):
+        print("[ERROR] Unsupported file type.")
         return jsonify({'error': 'Unsupported file type'}), 400
+
 
     current_user = get_jwt_identity()
     filename = secure_filename(file.filename)
