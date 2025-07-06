@@ -110,12 +110,14 @@ def summarize_with_vertex(gcs_uri):
         endpoint="text-bison@001"
     )
 
-    instance = struct_pb2.Struct()
-    instance.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
+    # ✅ Correct: create Value object and set its fields
+    instance = struct_pb2.Value()
+    instance.struct_value.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
 
-    parameters = struct_pb2.Struct()
-    parameters.fields["temperature"].number_value = 0.2
+    parameters = struct_pb2.Value()
+    parameters.struct_value.fields["temperature"].number_value = 0.2
 
+    # ✅ Pass list of `Value` instances
     request = PredictRequest(
         endpoint=endpoint,
         instances=[instance],
@@ -123,7 +125,9 @@ def summarize_with_vertex(gcs_uri):
     )
 
     response = client.predict(request=request)
-    return response.predictions[0].fields["content"].string_value
+
+    # ✅ Extract string response safely
+    return response.predictions[0].struct_value.fields["content"].string_value
 
 @app.route('/upload', methods=['POST'])
 @jwt_required()
