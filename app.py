@@ -102,32 +102,35 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     return f"gs://{bucket_name}/{destination_blob_name}"
 
 def summarize_with_vertex(gcs_uri):
+    from google.cloud.aiplatform_v1 import PredictionServiceClient
+    from google.cloud.aiplatform_v1.types import PredictRequest
+    from google.protobuf import struct_pb2
+
     client = PredictionServiceClient()
 
     endpoint = client.endpoint_path(
-        project="strategic-block-464807-a1",
+        project="strategic-block-464807-a1",  # your project ID
         location="us-central1",
         endpoint="text-bison@001"
     )
 
-    # ✅ Correct: create Value object and set its fields
-    instance = struct_pb2.Value()
-    instance.struct_value.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
+    # ✅ Create Struct manually
+    instance = struct_pb2.Struct()
+    instance.fields["content"].string_value = f"Summarize this document stored at: {gcs_uri}"
 
-    parameters = struct_pb2.Value()
-    parameters.struct_value.fields["temperature"].number_value = 0.2
+    parameters = struct_pb2.Struct()
+    parameters.fields["temperature"].number_value = 0.2
 
-    # ✅ Pass list of `Value` instances
     request = PredictRequest(
         endpoint=endpoint,
-        instances=[instance],
-        parameters=parameters
+        instances=[instance],  # ✅ Must be list of Struct
+        parameters=parameters  # ✅ Must be Struct
     )
 
     response = client.predict(request=request)
 
-    # ✅ Extract string response safely
-    return response.predictions[0].struct_value.fields["content"].string_value
+    return response.predictions[0].fields["content"].string_value
+
 
 @app.route('/upload', methods=['POST'])
 @jwt_required()
