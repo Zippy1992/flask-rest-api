@@ -128,23 +128,28 @@ def summarize_with_vertex(gcs_uri):
     # ✅ Get the result
     return response.predictions[0].fields["content"].string_value
 
-
 @app.route('/upload', methods=['POST'])
 @jwt_required()
 def upload_file():
+    print("[DEBUG] Upload route called.")
+
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
+        return jsonify({'error': 'No file part in request'}), 400
 
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Unsupported file type'}), 400
 
-    current_user = get_jwt_identity()
-    filename = secure_filename(file.filename)
-    temp_path = os.path.join(tempfile.gettempdir(), filename)
-    file.save(temp_path)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(tempfile.gettempdir(), filename)
+        file.save(temp_path)
+
+        gcs_uri = upload_to_gcs("your-gcs-bucket-name", temp_path, filename)
+        summary = summarize_with_vertex(gcs_uri)
+        return jsonify({'summary': summary})
+
+    return jsonify({'error': 'File type not allowed'}), 400
 
     bucket_name = "doc-summarizer-uploads"
     gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
