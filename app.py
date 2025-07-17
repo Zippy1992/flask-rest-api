@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from google.cloud import storage
 from vertexai.preview.language_models import TextGenerationModel
+import vertexai
 
 import os
 import tempfile
@@ -16,9 +17,8 @@ if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
         f.write(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_path
 
+# ✅ Initialize Flask app
 app = Flask(__name__)
-
-# ✅ Configs
 app.config['JWT_SECRET_KEY'] = os.environ.get("JWT_SECRET_KEY", "super-secret-key")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
@@ -47,9 +47,16 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     return f"gs://{bucket_name}/{destination_blob_name}"
 
 def summarize_with_vertex(gcs_uri):
+    vertexai.init(project="zippy-genai-summarizer", location="us-central1")  # ✅ Set your project + region
     model = TextGenerationModel.from_pretrained("text-bison@001")
+
     prompt = f"Summarize the document available at this Google Cloud Storage URI:\n{gcs_uri}"
-    response = model.predict(prompt=prompt, temperature=0.2, max_output_tokens=512)
+
+    response = model.predict(
+        prompt=prompt,
+        temperature=0.2,
+        max_output_tokens=512
+    )
     return response.text
 
 # ✅ Routes
@@ -93,8 +100,7 @@ def upload_file():
         temp_path = os.path.join(tempfile.gettempdir(), filename)
         file.save(temp_path)
 
-        # Set your real GCS bucket name here
-        bucket_name = "doc-summarizer-uploads"
+        bucket_name = "doc-summarizer-uploads"  # ✅ Ensure bucket exists in us-central1
         gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
         summary = summarize_with_vertex(gcs_uri)
 
