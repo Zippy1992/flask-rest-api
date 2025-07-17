@@ -123,6 +123,21 @@ def protected():
 def list_routes():
     return jsonify([str(rule) for rule in app.url_map.iter_rules()])
 
+@app.route('/test-gcs')
+def test_gcs_upload():
+    try:
+        from google.cloud import storage
+
+        client = storage.Client()
+        bucket = client.bucket("doc-summarizer-upload")  # 👈 must exist in us-central1
+        blob = bucket.blob("test.txt")
+        blob.upload_from_string("Hello GCS!")
+
+        return jsonify({"message": "✅ test.txt uploaded to GCS successfully!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
