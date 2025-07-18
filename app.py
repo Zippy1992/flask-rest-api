@@ -44,7 +44,9 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_filename(source_file_path)
+    print(f"✅ Uploaded to GCS: gs://{bucket_name}/{destination_blob_name}")
     return f"gs://{bucket_name}/{destination_blob_name}"
+
 
 def summarize_with_vertex(gcs_uri):
     vertexai.init(project="zippy-genai-summarizer", location="us-central1")  # ✅ Set your project + region
@@ -100,7 +102,7 @@ def upload_file():
         temp_path = os.path.join(tempfile.gettempdir(), filename)
         file.save(temp_path)
 
-        bucket_name = "doc-summarizer-uploads"  # ✅ Ensure bucket exists in us-central1
+        bucket_name = "doc-summarizer-upload"  # ✅ Ensure bucket exists in us-central1
         gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
         summary = summarize_with_vertex(gcs_uri)
 
@@ -136,6 +138,15 @@ def test_gcs_upload():
         return jsonify({"message": "✅ test.txt uploaded to GCS successfully!"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+from google.cloud import storage
+
+client = storage.Client()
+bucket = client.bucket("doc-summarizer-upload")
+blob = bucket.blob("test.txt")
+blob.upload_from_string("Hello GCS!")
+
+print("✅ Uploaded test.txt successfully!")
 
 
 if __name__ == '__main__':
