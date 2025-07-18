@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 from google.cloud import storage
 from vertexai.preview.language_models import TextGenerationModel
 import vertexai
-
+from google.cloud import storage
 import os
 import tempfile
 
@@ -139,14 +139,8 @@ def test_gcs_upload():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-from google.cloud import storage
 
-client = storage.Client()
-bucket = client.bucket("doc-summarizer-upload")
-blob = bucket.blob("test.txt")
-blob.upload_from_string("Hello GCS!")
 
-print("✅ Uploaded test.txt successfully!")
 
 
 if __name__ == '__main__':
