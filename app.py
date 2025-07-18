@@ -5,24 +5,29 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from google.cloud import storage
 from vertexai.preview.language_models import TextGenerationModel
-import vertexai
-from google.cloud import storage
+
 import os
 import tempfile
 
-# ✅ Inject credentials from Render secret env var (GOOGLE_APPLICATION_CREDENTIALS_JSON)
+# ✅ Inject GCP credentials from env (Render-compatible)
 if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
     json_path = os.path.join(tempfile.gettempdir(), "gcp_key.json")
     with open(json_path, "w") as f:
         f.write(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_path
 
-# ✅ Initialize Flask app
 app = Flask(__name__)
+
+# ✅ App config
 app.config['JWT_SECRET_KEY'] = os.environ.get("JWT_SECRET_KEY", "super-secret-key")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # Limit upload size to 2MB
+
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
+
+# ✅ Allowed file types
+ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 
 # ✅ User model
 class User(db.Model):
@@ -33,9 +38,6 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
-# ✅ Allowed file types
-ALLOWED_EXTENSIONS = {'txt', 'pdf'}
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -44,21 +46,19 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_filename(source_file_path)
-    print(f"✅ Uploaded to GCS: gs://{bucket_name}/{destination_blob_name}")
     return f"gs://{bucket_name}/{destination_blob_name}"
 
-
 def summarize_with_vertex(gcs_uri):
-    vertexai.init(project="zippy-genai-summarizer", location="us-central1")  # ✅ Set your project + region
     model = TextGenerationModel.from_pretrained("text-bison@001")
-
     prompt = f"Summarize the document available at this Google Cloud Storage URI:\n{gcs_uri}"
-
+    print("📨 Sending prompt to Vertex AI...")
     response = model.predict(
         prompt=prompt,
         temperature=0.2,
-        max_output_tokens=512
+        max_output_tokens=512,
+        timeout=30  # Added timeout for reliability
     )
+    print("✅ Received response from Vertex AI.")
     return response.text
 
 # ✅ Routes
@@ -102,9 +102,13 @@ def upload_file():
         temp_path = os.path.join(tempfile.gettempdir(), filename)
         file.save(temp_path)
 
-        bucket_name = "doc-summarizer-upload"  # ✅ Ensure bucket exists in us-central1
+        bucket_name = "doc-summarizer-upload"  # ✅ Make sure this exists
         gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
-        summary = summarize_with_vertex(gcs_uri)
+
+        try:
+            summary = summarize_with_vertex(gcs_uri)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
         return jsonify({
             "user": current_user,
@@ -124,24 +128,6 @@ def protected():
 @app.route('/routes')
 def list_routes():
     return jsonify([str(rule) for rule in app.url_map.iter_rules()])
-
-@app.route('/test-gcs')
-def test_gcs_upload():
-    try:
-        from google.cloud import storage
-
-        client = storage.Client()
-        bucket = client.bucket("doc-summarizer-upload")  # 👈 must exist in us-central1
-        blob = bucket.blob("test.txt")
-        blob.upload_from_string("Hello GCS!")
-
-        return jsonify({"message": "✅ test.txt uploaded to GCS successfully!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-
-
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
