@@ -56,19 +56,25 @@ def test_upload_to_gcs():
     blob.upload_from_string("This is a test upload from Flask app.")
     print("✅ Test upload successful")
 
-# ✅ Utility: Vertex summarization
 def summarize_with_vertex(gcs_uri):
-    model = TextGenerationModel.from_pretrained("text-bison@001")
-    prompt = f"Summarize the document available at this Google Cloud Storage URI:\n{gcs_uri}"
-    print("📨 Sending prompt to Vertex AI...")
-    response = model.predict(
-        prompt=prompt,
-        temperature=0.2,
-        max_output_tokens=512,
-        timeout=30
-    )
-    print("✅ Received response from Vertex AI.")
-    return response.text
+    try:
+        model = TextGenerationModel.from_pretrained("text-bison@001")
+        prompt = f"Summarize the document available at this Google Cloud Storage URI:\n{gcs_uri}"
+        print("📨 Prompt being sent to Vertex AI:", prompt)
+
+        response = model.predict(
+            prompt=prompt,
+            temperature=0.2,
+            max_output_tokens=512,
+            timeout=30
+        )
+
+        print("✅ Vertex AI returned summary.")
+        return response.text
+
+    except Exception as e:
+        print("❌ Vertex AI error:", e)
+        return f"[Vertex AI Error] {str(e)}"
 
 # ✅ Routes
 @app.route('/')
