@@ -65,8 +65,7 @@ def summarize_with_vertex(gcs_uri):
         response = model.predict(
             prompt=prompt,
             temperature=0.2,
-            max_output_tokens=512,
-            timeout=30
+            max_output_tokens=512
         )
 
         print("✅ Vertex AI returned summary.")
@@ -75,6 +74,7 @@ def summarize_with_vertex(gcs_uri):
     except Exception as e:
         print("❌ Vertex AI error:", e)
         return f"[Vertex AI Error] {str(e)}"
+
 
 # ✅ Routes
 @app.route('/')
