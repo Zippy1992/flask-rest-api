@@ -3,13 +3,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from google.cloud import storage
 from vertexai.preview.language_models import TextGenerationModel
-
+from google.cloud import storage
 import os
 import tempfile
 
-# ✅ Inject GCP credentials from env (Render-compatible)
+# ✅ Set credentials if injected as JSON (Render or other env)
 if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
     json_path = os.path.join(tempfile.gettempdir(), "gcp_key.json")
     with open(json_path, "w") as f:
@@ -21,12 +20,11 @@ app = Flask(__name__)
 # ✅ App config
 app.config['JWT_SECRET_KEY'] = os.environ.get("JWT_SECRET_KEY", "super-secret-key")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # Limit upload size to 2MB
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB file limit
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
-# ✅ Allowed file types
 ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 
 # ✅ User model
@@ -38,9 +36,11 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
+# ✅ Utility: File extension check
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# ✅ Utility: Upload to GCS
 def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
@@ -48,6 +48,15 @@ def upload_to_gcs(bucket_name, source_file_path, destination_blob_name):
     blob.upload_from_filename(source_file_path)
     return f"gs://{bucket_name}/{destination_blob_name}"
 
+# ✅ Optional test function (can be called from CLI separately)
+def test_upload_to_gcs():
+    client = storage.Client()
+    bucket = client.get_bucket('doc-summarizer-upload')
+    blob = bucket.blob('test_upload.txt')
+    blob.upload_from_string("This is a test upload from Flask app.")
+    print("✅ Test upload successful")
+
+# ✅ Utility: Vertex summarization
 def summarize_with_vertex(gcs_uri):
     model = TextGenerationModel.from_pretrained("text-bison@001")
     prompt = f"Summarize the document available at this Google Cloud Storage URI:\n{gcs_uri}"
@@ -56,7 +65,7 @@ def summarize_with_vertex(gcs_uri):
         prompt=prompt,
         temperature=0.2,
         max_output_tokens=512,
-        timeout=30  # Added timeout for reliability
+        timeout=30
     )
     print("✅ Received response from Vertex AI.")
     return response.text
@@ -102,20 +111,18 @@ def upload_file():
         temp_path = os.path.join(tempfile.gettempdir(), filename)
         file.save(temp_path)
 
-        bucket_name = "doc-summarizer-upload"  # ✅ Make sure this exists
-        gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
-
         try:
+            bucket_name = "doc-summarizer-upload"  # Ensure this exists in GCS
+            gcs_uri = upload_to_gcs(bucket_name, temp_path, filename)
             summary = summarize_with_vertex(gcs_uri)
+            return jsonify({
+                "user": current_user,
+                "filename": filename,
+                "gcs_uri": gcs_uri,
+                "summary": summary
+            })
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-
-        return jsonify({
-            "user": current_user,
-            "filename": filename,
-            "gcs_uri": gcs_uri,
-            "summary": summary
-        })
 
     return jsonify({'error': 'File type not allowed'}), 400
 
@@ -130,5 +137,7 @@ def list_routes():
     return jsonify([str(rule) for rule in app.url_map.iter_rules()])
 
 if __name__ == '__main__':
+    # Optional: Uncomment to test GCS upload locally only
+    # test_upload_to_gcs()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
