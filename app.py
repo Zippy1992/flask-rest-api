@@ -58,7 +58,7 @@ def test_upload_to_gcs():
 
 def summarize_with_vertex(gcs_uri):
     try:
-        model = TextGenerationModel.from_pretrained("text-bison@001")
+        model = TextGenerationModel.from_pretrained("text-bison")
         prompt = f"Summarize the document available at this Google Cloud Storage URI:\n{gcs_uri}"
         print("📨 Prompt being sent to Vertex AI:", prompt)
 
